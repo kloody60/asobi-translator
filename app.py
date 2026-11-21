@@ -12,7 +12,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import engine as T
 import profiles
 import updater
-from version import APP_NAME, VERSION
+from version import APP_NAME, REPO_URL, VERSION
 
 CFG = T.CFG
 ICON = T.BASE / "assets" / "icon.png"
@@ -528,6 +528,7 @@ class Panel(QtWidgets.QWidget):
         self._update_run_btn()
         self.overlay.placed.connect(self._after_drag)
         self.region.changed.connect(self._dirty)
+        self._build_tray()
         self.quit_req.connect(self.close)
         self.mode_req.connect(self._cycle_mode)
         self.front_req.connect(self.bring_to_front)
@@ -663,7 +664,7 @@ class Panel(QtWidgets.QWidget):
             w.setWordWrap(True)
             tl.addWidget(a)
             tl.addWidget(w)
-            grid.addWidget(tile, k // 2, k % 2)
+            grid.addWidget(tile, k // 2, k % 2, 1, 2 if k == 2 else 1)
         self.col.addLayout(grid)
         tile = QtWidgets.QFrame()
         tile.setObjectName("tile")
@@ -859,6 +860,18 @@ class Panel(QtWidgets.QWidget):
         tipm.setObjectName("muted")
         f.addRow(tipm)
         self.adv += [f.parentWidget()]
+        f = self._group("عن البرنامج")
+        ab = QtWidgets.QLabel(f"<b>{APP_NAME}</b> — الإصدار {VERSION}<br>يترجم صوت ألعاب الريموت بلاي إلى العربية فوراً، "
+                              "ويقدر يكتب الكلام الأصلي كلمة كلمة. ما يعدّل Asobi ولا يتجاوز أي حماية.")
+        ab.setWordWrap(True)
+        f.addRow(ab)
+        btn_site = QtWidgets.QPushButton("صفحة البرنامج على GitHub")
+        btn_site.clicked.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(REPO_URL)))
+        f.addRow(btn_site)
+        lic = QtWidgets.QLabel("نموذج الترجمة NLLB-200 من Meta بترخيص غير تجاري (CC-BY-NC 4.0)، فالبرنامج مجاني ولا يُباع.")
+        lic.setObjectName("muted")
+        lic.setWordWrap(True)
+        f.addRow(lic)
         f = self._group("التحديثات")
         self.lb_upd = QtWidgets.QLabel(f"الإصدار الحالي {VERSION}")
         self.lb_upd.setWordWrap(True)
@@ -944,6 +957,22 @@ class Panel(QtWidgets.QWidget):
         self.sync()
         self.overlay.refresh()
         self._dirty()
+
+    def _build_tray(self):
+        if not QtWidgets.QSystemTrayIcon.isSystemTrayAvailable():
+            return
+        self.tray = QtWidgets.QSystemTrayIcon(QtGui.QIcon(str(ICON)), self)
+        menu = QtWidgets.QMenu()
+        menu.addAction("فتح اللوحة", self.bring_to_front)
+        menu.addAction("ابدأ / أوقف الترجمة", self._toggle_run)
+        menu.addAction("تبديل وضع العرض", self._cycle_mode)
+        menu.addSeparator()
+        menu.addAction("خروج", self.close)
+        self.tray.setContextMenu(menu)
+        self.tray.setToolTip(APP_NAME)
+        self.tray.activated.connect(lambda r: self.bring_to_front() if r in (
+            QtWidgets.QSystemTrayIcon.Trigger, QtWidgets.QSystemTrayIcon.DoubleClick) else None)
+        self.tray.show()
 
     # ---------- أوضاع العرض ----------
     def _cycle_mode(self):
@@ -1175,6 +1204,8 @@ class Panel(QtWidgets.QWidget):
 
     def closeEvent(self, e):
         T.save_config()
+        if hasattr(self, "tray"):
+            self.tray.hide()
         self.overlay.hide()
         self.region.hide()
         e.accept()

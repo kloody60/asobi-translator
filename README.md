@@ -26,3 +26,18 @@ powershell -File installer\build.ps1 -BaseUrl https://github.com/kloody60/asobi-
 
 ## التراخيص / Licenses
 النماذج: NLLB-200 (Meta) بترخيص CC-BY-NC 4.0 — **للاستخدام غير التجاري فقط**. Whisper (MIT).
+
+## صور البرنامج / Screenshots
+
+| الرئيسية | أثناء الترجمة |
+|---|---|
+| ![home](docs/screenshots/01-home.png) | ![running](docs/screenshots/02-home-running.png) |
+
+| المظهر والمكان | الإعدادات |
+|---|---|
+| ![appearance](docs/screenshots/03-appearance.png) | ![settings](docs/screenshots/04-settings.png) |
+
+### أوضاع العرض / Display modes
+ترجمة عربية، أو الكلام الأصلي كلمة كلمة بدون ترجمة، أو الاثنين معاً (من الإعدادات المتقدمة، أو Ctrl+Alt+M).
+
+![modes](docs/captions_preview.png)
