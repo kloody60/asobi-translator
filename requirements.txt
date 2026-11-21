@@ -1,0 +1,13 @@
+numpy
+opencv-python-headless
+mss
+easyocr
+ctranslate2
+transformers
+sentencepiece
+faster-whisper
+PyAudioWPatch
+scipy
+PySide6
+keyboard
+proc-tap
