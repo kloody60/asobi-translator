@@ -61,6 +61,7 @@ def main():
         say("تم")
     except Exception as e:
         say("فشل التحديث، رجوع للنسخة السابقة:", repr(e))
+        (app / "update_failed.txt").write_text(ver, encoding="utf-8")
         for rel, existed in changed:
             if (backup / rel).exists():
                 shutil.copy2(backup / rel, app / rel)

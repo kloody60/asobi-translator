@@ -53,6 +53,11 @@ def check():
                 return None, "ملف التحديثات ناقص"
     except Exception as e:
         return None, f"تعذر الاتصال بخادم التحديثات ({type(e).__name__})"
+    try:  # تحديث فشل قبل (تراجع تلقائي): ما نكرره في كل تشغيل
+        if (BASE / "update_failed.txt").read_text(encoding="utf-8").strip() == str(m["version"]):
+            return None, "هذا التحديث فشل سابقاً وتم التراجع عنه"
+    except OSError:
+        pass
     if parse(m["version"]) > parse(VERSION):
         return m, f"يتوفر إصدار جديد {m['version']}"
     return None, "أنت على آخر إصدار ✓"
@@ -96,6 +101,24 @@ def download(m, progress=None):
         raise RuntimeError("الحزمة ما فيها app.py")
     zp.unlink()
     return out
+
+
+def write_ready(version):
+    """يعلّم الحزمة المنزّلة (والمتحقق منها) أنها جاهزة للتركيب."""
+    (STAGE / "ready.json").write_text(json.dumps({"version": str(version)}), encoding="utf-8")
+
+
+def staged():
+    """(مجلد الملفات, الإصدار) لو في تحديث جاهز ومنزّل قبل وأحدث من الحالي، وإلا None."""
+    try:
+        v = json.loads((STAGE / "ready.json").read_text(encoding="utf-8"))["version"]
+        files = STAGE / "files"
+        if parse(v) > parse(VERSION) and (files / "app.py").exists():
+            return files, v
+    except Exception:
+        pass
+    shutil.rmtree(STAGE, ignore_errors=True)  # قديم أو تالف
+    return None
 
 
 def apply_and_exit(files_dir, new_version):

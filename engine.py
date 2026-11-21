@@ -35,7 +35,7 @@ DEFAULTS = {
     },
     "audio": {
         "enabled": True, "source": "app", "device": "auto", "language": "auto", "show_arabic": False,
-        "high_accuracy": True, "hint_words": "", "live": True, "live_interval": 0.4, "live_tentative": True,
+        "high_accuracy": True, "hint_words": "", "live": True, "display_mode": "translate", "save_history": True, "live_interval": 0.4, "live_tentative": True,
         "whisper_model": "large-v3",
         "vad_threshold": 0.45, "boost_quiet": True, "silence_seconds": 0.5,
         "max_utterance_seconds": 8, "hide_after_seconds": 7,
@@ -44,7 +44,7 @@ DEFAULTS = {
         "enabled": True, "visible_in_capture": True, "obs_window": False, "show_original": False,
         "font": "Segoe UI", "font_size": 28,
         "text_color": "#FFFFFF", "text_opacity": 100, "bg_color": "#000000", "bg_opacity": 82,
-        "radius": 12, "pos_x": 0.5, "pos_y": 0.9, "width": 0.8,
+        "radius": 12, "pad_y": 10, "pos_x": 0.5, "pos_y": 0.9, "width": 0.8,
     },
 }
 
@@ -474,6 +474,20 @@ def open_audio_source(au, stop, q):
     return rate, close, None
 
 
+def log_history(lang, text, tr):
+    """سجل الحوار: كل جملة سمعها (ومعها ترجمتها لو انترجمت) في transcript.log."""
+    if not CFG["audio"].get("save_history"):
+        return
+    try:
+        f = BASE / "transcript.log"
+        if f.exists() and f.stat().st_size > 2 * 1024 * 1024:
+            f.replace(BASE / "transcript.old.log")
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{lang}] {text}" + (f"  =>  {tr}" if tr else "") + "\n")
+    except OSError:
+        pass
+
+
 def _norm(w):
     return re.sub(r"[^\w]", "", w.lower())
 
@@ -573,8 +587,11 @@ def audio_worker(mt, emit, stop):
     def keep_line():
         return prev_tr if prev_tr and time.time() - prev_tr_t < 6 else ""
 
-    def pack(tr, orig):  # النص الأصلي بعد فاصل خاص، النافذة تعرضه تحت الترجمة إذا الخيار مفعّل
-        return f"{tr}\x1e{orig}" if ov.get("show_original") else tr
+    def mode():  # translate = ترجمة | original = الكلام الأصلي بدون ترجمة | both = الاثنين
+        return au.get("display_mode", "translate")
+
+    def pack(tr, orig):  # النص الأصلي بعد فاصل خاص، النافذة تعرضه فوق الترجمة في وضع «الاثنين»
+        return f"{tr}\x1e{orig}" if mode() == "both" else tr
 
     def show(tr, orig):
         k = keep_line()
@@ -586,7 +603,8 @@ def audio_worker(mt, emit, stop):
         nonlocal prev_tr, prev_tr_t
         STATE["heard"] = text
         print(f"[سمعت:{lang}]", text, flush=True)
-        tr = mt.translate(text, lang)
+        tr = text if mode() == "original" else mt.translate(text, lang)
+        log_history(lang, text, "" if mode() == "original" else tr)
         k = keep_line()
         shown = "\n".join(((k + "\n" + tr) if k else tr).split("\n")[-2:])  # سطرين كحد أقصى
         prev_tr = shown
@@ -680,7 +698,7 @@ def audio_worker(mt, emit, stop):
                 if disp and disp != last_disp and not junk(disp):
                     last_disp = disp
                     STATE["heard"] = disp
-                    show(mt.translate(disp, info.language, fast=True), disp)
+                    show(disp if mode() == "original" else mt.translate(disp, info.language, fast=True), disp)
                 continue
 
             # ---- نهاية الكلام (أو تجاوز الحد): تدقيق نهائي أدق على اللي ما انقطع ----
